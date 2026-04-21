@@ -9,11 +9,11 @@ interface Props {
   onSave: (id: string, label: Label) => Promise<void>;
 }
 
-const LABEL_COLORS: Record<string, string> = {
-  positive: "#16a34a",
-  neutral: "#2563eb",
-  negative: "#dc2626",
-  trash: "#d97706",
+const CONFIGS: Record<string, { color: string; bg: string; border: string; text: string }> = {
+  positive: { color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0", text: "✅ Positive" },
+  neutral:  { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", text: "➖ Neutral"  },
+  negative: { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", text: "❌ Negative" },
+  trash:    { color: "#d97706", bg: "#fffbeb", border: "#fde68a", text: "🗑 Trash"    },
 };
 
 export default function LabelSelect({ id, value, onSave }: Props) {
@@ -29,7 +29,7 @@ export default function LabelSelect({ id, value, onSave }: Props) {
     }
   }
 
-  const color = value ? LABEL_COLORS[value] : "#4b5563";
+  const cfg = value ? CONFIGS[value] : null;
 
   return (
     <select
@@ -37,22 +37,25 @@ export default function LabelSelect({ id, value, onSave }: Props) {
       onChange={handleChange}
       disabled={saving}
       style={{
-        background: value ? `${color}22` : "#1e2235",
-        border: `1.5px solid ${color}`,
-        borderRadius: 6,
-        color: value ? color : "#6b7280",
-        padding: "4px 24px 4px 8px",
-        cursor: "pointer",
+        background: cfg ? cfg.bg : "#f9fafb",
+        border: `1.5px solid ${cfg ? cfg.border : "#e2e6ed"}`,
+        borderRadius: 8,
+        color: cfg ? cfg.color : "#9aa5b4",
+        padding: "6px 28px 6px 10px",
+        cursor: saving ? "wait" : "pointer",
         fontWeight: 600,
-        minWidth: 120,
-        opacity: saving ? 0.6 : 1,
+        fontSize: 13,
+        width: "100%",
+        minWidth: 130,
+        opacity: saving ? 0.7 : 1,
         transition: "all 0.15s",
+        outline: "none",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
       }}
     >
-      {LABEL_OPTIONS.map((opt) => (
-        <option key={opt.value ?? "null"} value={opt.value ?? ""}>
-          {opt.label}
-        </option>
+      <option value="">— Chưa gán —</option>
+      {LABEL_OPTIONS.filter((o) => o.value).map((opt) => (
+        <option key={opt.value} value={opt.value!}>{opt.label}</option>
       ))}
     </select>
   );

@@ -15,13 +15,10 @@ export default function SymbolCell({ id, value, onSave }: Props) {
   const [custom, setCustom] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
   const isCustom = selected === "__custom__";
 
   useEffect(() => {
-    if (isCustom && inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (isCustom) inputRef.current?.focus();
   }, [isCustom]);
 
   async function handleSave() {
@@ -35,35 +32,27 @@ export default function SymbolCell({ id, value, onSave }: Props) {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") handleSave();
-    if (e.key === "Escape") setEditing(false);
-  }
-
   if (!editing) {
     return (
-      <button onClick={() => setEditing(true)} style={btnStyle}>
-        {value ? (
-          <span style={chipStyle}>{value}</span>
-        ) : (
-          <span style={emptyStyle}>—</span>
-        )}
+      <button onClick={() => setEditing(true)} style={triggerStyle} title="Click để sửa symbol">
+        {value
+          ? <span style={chipStyle}>{value}</span>
+          : <span style={emptyStyle}>+ Thêm</span>
+        }
       </button>
     );
   }
 
   return (
-    <div style={popupStyle} onKeyDown={handleKeyDown}>
+    <div style={popupStyle}>
+      <p style={popupLabel}>Chọn symbol</p>
       <select
         value={selected}
-        onChange={(e) => {
-          setSelected(e.target.value);
-          setCustom("");
-        }}
+        onChange={(e) => { setSelected(e.target.value); setCustom(""); }}
         style={selectStyle}
         autoFocus={!isCustom}
       >
-        <option value="">— Trống —</option>
+        <option value="">— Xóa symbol —</option>
         {MACRO_SYMBOLS.map((s) => (
           <option key={s} value={s}>{s}</option>
         ))}
@@ -75,92 +64,104 @@ export default function SymbolCell({ id, value, onSave }: Props) {
           ref={inputRef}
           value={custom}
           onChange={(e) => setCustom(e.target.value.toUpperCase())}
-          placeholder="Nhập symbol..."
+          onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setEditing(false); }}
+          placeholder="Ví dụ: HPG, VNM..."
           style={inputStyle}
         />
       )}
 
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
         <button onClick={handleSave} disabled={saving} style={saveBtnStyle}>
-          {saving ? "..." : "Lưu"}
+          {saving ? "Đang lưu..." : "Lưu"}
         </button>
-        <button onClick={() => setEditing(false)} style={cancelBtnStyle}>
-          Hủy
-        </button>
+        <button onClick={() => setEditing(false)} style={cancelBtnStyle}>Hủy</button>
       </div>
     </div>
   );
 }
 
-const btnStyle: React.CSSProperties = {
+const triggerStyle: React.CSSProperties = {
   background: "none",
-  border: "1px dashed transparent",
-  borderRadius: 4,
+  border: "none",
   cursor: "pointer",
-  padding: "2px 4px",
+  padding: "2px 0",
   textAlign: "left",
-  minWidth: 60,
 };
 const chipStyle: React.CSSProperties = {
-  background: "#232635",
-  border: "1px solid #3b4263",
-  borderRadius: 4,
-  padding: "1px 8px",
-  color: "#a78bfa",
+  display: "inline-block",
+  background: "#eef1fe",
+  border: "1px solid #c7d2fc",
+  borderRadius: 6,
+  padding: "3px 10px",
+  color: "#4f6ef7",
   fontSize: 12,
-  fontWeight: 600,
+  fontWeight: 700,
   letterSpacing: "0.04em",
 };
 const emptyStyle: React.CSSProperties = {
-  color: "#4b5563",
-  fontSize: 13,
+  display: "inline-block",
+  color: "#9aa5b4",
+  fontSize: 12,
+  border: "1px dashed #cbd2da",
+  borderRadius: 6,
+  padding: "3px 8px",
 };
 const popupStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 6,
-  background: "#1e2235",
-  border: "1px solid #3b4263",
-  borderRadius: 8,
-  padding: 10,
-  minWidth: 160,
+  gap: 8,
+  background: "#fff",
+  border: "1px solid #e2e6ed",
+  borderRadius: 10,
+  padding: 12,
+  minWidth: 180,
+  boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
   zIndex: 10,
-  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+};
+const popupLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#6b7a90",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
 };
 const selectStyle: React.CSSProperties = {
-  background: "#232635",
-  border: "1px solid #3b4263",
-  borderRadius: 4,
-  color: "#e2e8f0",
-  padding: "5px 24px 5px 8px",
+  background: "#f5f7fa",
+  border: "1px solid #e2e6ed",
+  borderRadius: 7,
+  color: "#1a2130",
+  padding: "7px 28px 7px 10px",
   width: "100%",
   cursor: "pointer",
+  outline: "none",
 };
 const inputStyle: React.CSSProperties = {
-  background: "#232635",
-  border: "1px solid #6366f1",
-  borderRadius: 4,
-  color: "#e2e8f0",
-  padding: "5px 8px",
+  background: "#fff",
+  border: "1.5px solid #4f6ef7",
+  borderRadius: 7,
+  color: "#1a2130",
+  padding: "7px 10px",
   width: "100%",
   outline: "none",
+  fontWeight: 600,
 };
 const saveBtnStyle: React.CSSProperties = {
   flex: 1,
-  background: "#6366f1",
+  background: "#4f6ef7",
   border: "none",
-  borderRadius: 4,
+  borderRadius: 7,
   color: "#fff",
   cursor: "pointer",
-  padding: "4px 8px",
+  padding: "7px 0",
   fontWeight: 600,
 };
 const cancelBtnStyle: React.CSSProperties = {
   flex: 1,
-  background: "#2e3148",
-  border: "none",
-  borderRadius: 4,
-  color: "#8892a4",
+  background: "#f0f2f5",
+  border: "1px solid #e2e6ed",
+  borderRadius: 7,
+  color: "#6b7a90",
   cursor: "pointer",
-  padding: "4px 8px",
+  padding: "7px 0",
+  fontWeight: 500,
 };

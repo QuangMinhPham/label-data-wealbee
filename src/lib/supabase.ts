@@ -48,7 +48,7 @@ export const MACRO_SYMBOLS = [
   "CRYPTO",
 ];
 
-export const PAGE_SIZE = 50;
+export const PAGE_SIZE = 20;
 
 export async function fetchNews(params: {
   page: number;

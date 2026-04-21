@@ -1,19 +1,31 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f1117;
-  --surface: #1a1d27;
-  --surface2: #232635;
-  --border: #2e3148;
-  --text: #e2e8f0;
-  --text-muted: #8892a4;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface2: #f0f2f5;
+  --border: #e2e6ed;
+  --border-strong: #cbd2da;
+  --text: #1a2130;
+  --text-muted: #6b7a90;
+  --text-light: #9aa5b4;
+  --accent: #4f6ef7;
+  --accent-light: #eef1fe;
   --positive: #16a34a;
+  --positive-bg: #f0fdf4;
+  --positive-border: #bbf7d0;
   --neutral: #2563eb;
+  --neutral-bg: #eff6ff;
+  --neutral-border: #bfdbfe;
   --negative: #dc2626;
+  --negative-bg: #fef2f2;
+  --negative-border: #fecaca;
   --trash: #92400e;
-  --radius: 6px;
+  --trash-bg: #fffbeb;
+  --trash-border: #fde68a;
+  --radius: 8px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 html, body { height: 100%; }
@@ -21,27 +33,26 @@ html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--surface); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd2da; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #9aa5b4; }
 
-/* Reset button/input */
 button, input, select { font-family: inherit; font-size: inherit; }
 
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%238892a4' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%236b7a90' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 24px;
+  background-position: right 10px center;
+  padding-right: 28px !important;
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }

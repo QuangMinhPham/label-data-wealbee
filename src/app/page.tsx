@@ -16,6 +16,13 @@ import SymbolCell from "@/components/SymbolCell";
 
 type LabelFilter = "all" | "unlabeled" | "positive" | "neutral" | "negative" | "trash";
 
+const LABEL_BADGE: Record<string, { color: string; bg: string; border: string }> = {
+  positive: { color: "#16a34a", bg: "#f0fdf4", border: "#bbf7d0" },
+  neutral:  { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" },
+  negative: { color: "#dc2626", bg: "#fef2f2", border: "#fecaca" },
+  trash:    { color: "#d97706", bg: "#fffbeb", border: "#fde68a" },
+};
+
 export default function HomePage() {
   const [rows, setRows] = useState<NewsRow[]>([]);
   const [count, setCount] = useState(0);
@@ -27,15 +34,12 @@ export default function HomePage() {
 
   const [labelFilter, setLabelFilter] = useState<LabelFilter>("all");
   const [symbolFilter, setSymbolFilter] = useState("all");
-  const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-
+  const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [saving, setSaving] = useState<Set<string>>(new Set());
   const [saveErrors, setSaveErrors] = useState<Record<string, string>>({});
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
   const loadData = useCallback(async () => {
@@ -68,395 +72,439 @@ export default function HomePage() {
   function handleSearchInput(v: string) {
     setSearchInput(v);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      setSearch(v);
-      setPage(0);
-    }, 400);
+    searchTimer.current = setTimeout(() => { setSearch(v); setPage(0); }, 400);
   }
 
-  function handleFilterChange<T>(setter: (v: T) => void, val: T) {
+  function handleFilter<T>(setter: (v: T) => void, val: T) {
     setter(val);
     setPage(0);
   }
 
   async function handleLabelSave(id: string, label: Label) {
-    setSaving((s) => new Set(s).add(id));
     setSaveErrors((e) => { const n = { ...e }; delete n[id]; return n; });
     try {
       await updateNewsRow(id, { label });
       setRows((prev) => prev.map((r) => r.id === id ? { ...r, label } : r));
-      // Refresh stats in background
       fetchLabelStats().then((s) => setStats(s as typeof stats));
     } catch (e) {
       setSaveErrors((prev) => ({ ...prev, [id]: (e as Error).message }));
-    } finally {
-      setSaving((s) => { const n = new Set(s); n.delete(id); return n; });
     }
   }
 
   async function handleSymbolSave(id: string, symbol: string | null) {
-    setSaving((s) => new Set(s).add(id + "_sym"));
     try {
       await updateNewsRow(id, { symbol });
       setRows((prev) => prev.map((r) => r.id === id ? { ...r, symbol } : r));
     } catch (e) {
       setSaveErrors((prev) => ({ ...prev, [id + "_sym"]: (e as Error).message }));
-    } finally {
-      setSaving((s) => { const n = new Set(s); n.delete(id + "_sym"); return n; });
     }
   }
 
   function formatDate(s: string | null) {
     if (!s) return "—";
     const d = new Date(s);
-    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }) +
-      " " + d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
-  function truncate(s: string | null, n = 120) {
-    if (!s) return "";
-    return s.length > n ? s.slice(0, n) + "…" : s;
-  }
-
-  const labelColorMap: Record<string, string> = {
-    positive: "#16a34a", neutral: "#2563eb", negative: "#dc2626", trash: "#d97706"
-  };
+  const pages = buildPageList(page, totalPages);
 
   return (
-    <div style={pageStyle}>
-      {/* Header */}
-      <div style={headerStyle}>
-        <div>
-          <h1 style={titleStyle}>Wealbee — Data Labeling</h1>
-          <p style={subtitleStyle}>Gán nhãn dữ liệu tin tức thị trường</p>
+    <div style={shell}>
+      {/* ── TOP BAR ── */}
+      <header style={topbar}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={logoBox}>W</div>
+          <div>
+            <h1 style={logoText}>Wealbee Labeling</h1>
+            <p style={logoSub}>Gán nhãn dữ liệu tin tức thị trường</p>
+          </div>
         </div>
-        <button onClick={() => { loadData(); loadStats(); }} style={refreshBtn}>
+        <button onClick={() => { loadData(); loadStats(); }} style={refreshBtnStyle}>
           ↻ Làm mới
         </button>
-      </div>
+      </header>
 
-      {/* Stats */}
-      {!statsLoading && <StatsBar stats={stats} />}
+      <main style={main}>
+        {/* ── STATS ── */}
+        {!statsLoading && <StatsBar stats={stats} />}
 
-      {/* Filters */}
-      <div style={filtersStyle}>
-        <input
-          value={searchInput}
-          onChange={(e) => handleSearchInput(e.target.value)}
-          placeholder="🔍 Tìm theo tiêu đề..."
-          style={inputStyle}
-        />
-
-        <select
-          value={labelFilter}
-          onChange={(e) => handleFilterChange(setLabelFilter, e.target.value as LabelFilter)}
-          style={selectStyle}
-        >
-          <option value="all">Tất cả nhãn</option>
-          <option value="unlabeled">⬜ Chưa gán</option>
-          {LABEL_OPTIONS.filter((o) => o.value).map((o) => (
-            <option key={o.value} value={o.value!}>{o.label}</option>
-          ))}
-        </select>
-
-        <select
-          value={symbolFilter}
-          onChange={(e) => handleFilterChange(setSymbolFilter, e.target.value)}
-          style={selectStyle}
-        >
-          <option value="all">Tất cả symbol</option>
-          <option value="no_symbol">— Không có symbol —</option>
-          <option value="VĨ MÔ">VĨ MÔ</option>
-          <option value="VNINDEX">VNINDEX</option>
-          <option value="HNX">HNX</option>
-          <option value="UPCOM">UPCOM</option>
-          <option value="GOLD">GOLD</option>
-          <option value="USD/VND">USD/VND</option>
-          <option value="OIL">OIL</option>
-          <option value="LÃISUẤT">LÃISUẤT</option>
-          <option value="TRÁIPHIẾU">TRÁIPHIẾU</option>
-          <option value="BĐS">BĐS</option>
-          <option value="CRYPTO">CRYPTO</option>
-        </select>
-
-        <span style={countStyle}>
-          {count.toLocaleString()} bài • Trang {page + 1}/{Math.max(1, totalPages)}
-        </span>
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div style={errorStyle}>
-          ⚠️ Lỗi: {error}
-          <button onClick={loadData} style={{ marginLeft: 12, color: "#f87171", cursor: "pointer", background: "none", border: "none" }}>
-            Thử lại
-          </button>
-        </div>
-      )}
-
-      {/* Table */}
-      <div style={tableWrapStyle}>
-        {loading ? (
-          <div style={loadingStyle}>
-            <div style={spinner} />
-            <span>Đang tải dữ liệu...</span>
+        {/* ── FILTERS ── */}
+        <div style={filtersRow}>
+          <div style={searchWrap}>
+            <span style={searchIcon}>🔍</span>
+            <input
+              value={searchInput}
+              onChange={(e) => handleSearchInput(e.target.value)}
+              placeholder="Tìm kiếm theo tiêu đề..."
+              style={searchInput_}
+            />
           </div>
-        ) : (
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={{ ...thStyle, width: 40, textAlign: "center" }}>#</th>
-                <th style={{ ...thStyle, width: 120 }}>Symbol</th>
-                <th style={{ ...thStyle, width: 130 }}>Ngày</th>
-                <th style={{ ...thStyle, width: 80 }}>Nguồn</th>
-                <th style={thStyle}>Tiêu đề / Nội dung</th>
-                <th style={{ ...thStyle, width: 145 }}>Nhãn</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
-                    Không có dữ liệu
-                  </td>
+
+          <div style={filterGroup}>
+            <label style={filterLabel}>Nhãn</label>
+            <select
+              value={labelFilter}
+              onChange={(e) => handleFilter(setLabelFilter, e.target.value as LabelFilter)}
+              style={filterSelect}
+            >
+              <option value="all">Tất cả</option>
+              <option value="unlabeled">⬜ Chưa gán</option>
+              {LABEL_OPTIONS.filter((o) => o.value).map((o) => (
+                <option key={o.value} value={o.value!}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={filterGroup}>
+            <label style={filterLabel}>Symbol</label>
+            <select
+              value={symbolFilter}
+              onChange={(e) => handleFilter(setSymbolFilter, e.target.value)}
+              style={filterSelect}
+            >
+              <option value="all">Tất cả</option>
+              <option value="no_symbol">— Không có —</option>
+              <option value="VĨ MÔ">VĨ MÔ</option>
+              <option value="VNINDEX">VNINDEX</option>
+              <option value="HNX">HNX</option>
+              <option value="UPCOM">UPCOM</option>
+              <option value="GOLD">GOLD</option>
+              <option value="USD/VND">USD/VND</option>
+              <option value="OIL">OIL</option>
+              <option value="LÃISUẤT">LÃISUẤT</option>
+              <option value="TRÁIPHIẾU">TRÁIPHIẾU</option>
+              <option value="BĐS">BĐS</option>
+              <option value="CRYPTO">CRYPTO</option>
+            </select>
+          </div>
+
+          <span style={resultCount}>
+            {count.toLocaleString()} bài
+          </span>
+        </div>
+
+        {/* ── ERROR ── */}
+        {error && (
+          <div style={errorBox}>
+            ⚠️ {error}
+            <button onClick={loadData} style={retryBtn}>Thử lại</button>
+          </div>
+        )}
+
+        {/* ── TABLE ── */}
+        <div style={card}>
+          {loading ? (
+            <div style={loadingBox}>
+              <div style={spinnerStyle} />
+              <span style={{ color: "#6b7a90", marginTop: 12 }}>Đang tải dữ liệu...</span>
+            </div>
+          ) : (
+            <table style={table}>
+              <thead>
+                <tr style={theadRow}>
+                  <th style={{ ...th, width: 44, textAlign: "center" }}>STT</th>
+                  <th style={{ ...th, width: 120 }}>Symbol</th>
+                  <th style={{ ...th, width: 110 }}>Ngày đăng</th>
+                  <th style={{ ...th, width: 80 }}>Nguồn</th>
+                  <th style={th}>Tiêu đề & Nội dung</th>
+                  <th style={{ ...th, width: 150 }}>Nhãn</th>
                 </tr>
-              ) : (
-                rows.map((row, idx) => {
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={emptyCell}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+                      Không có dữ liệu phù hợp
+                    </td>
+                  </tr>
+                ) : rows.map((row, idx) => {
                   const isExpanded = expandedId === row.id;
-                  const labelColor = row.label ? labelColorMap[row.label] : "transparent";
+                  const badge = row.label ? LABEL_BADGE[row.label] : null;
                   return (
                     <tr
                       key={row.id}
                       style={{
-                        ...trStyle,
-                        borderLeft: `3px solid ${labelColor}`,
-                        background: idx % 2 === 0 ? "#1a1d27" : "#1e2235",
+                        ...trBase,
+                        borderLeft: badge ? `4px solid ${badge.border}` : "4px solid transparent",
+                        background: badge ? badge.bg : idx % 2 === 0 ? "#fff" : "#fafbfc",
                       }}
                     >
-                      {/* Row number */}
-                      <td style={{ ...tdStyle, textAlign: "center", color: "#4b5563", fontSize: 12 }}>
+                      {/* STT */}
+                      <td style={{ ...td, textAlign: "center", color: "#9aa5b4", fontSize: 13 }}>
                         {page * PAGE_SIZE + idx + 1}
                       </td>
 
                       {/* Symbol */}
-                      <td style={tdStyle}>
-                        <SymbolCell
-                          id={row.id}
-                          value={row.symbol}
-                          onSave={handleSymbolSave}
-                        />
+                      <td style={td}>
+                        <SymbolCell id={row.id} value={row.symbol} onSave={handleSymbolSave} />
                       </td>
 
                       {/* Date */}
-                      <td style={{ ...tdStyle, color: "#8892a4", fontSize: 12, whiteSpace: "nowrap" }}>
+                      <td style={{ ...td, color: "#6b7a90", fontSize: 13, whiteSpace: "nowrap" }}>
                         {formatDate(row.published_at)}
                       </td>
 
                       {/* Source */}
-                      <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>
-                        {row.source ?? "—"}
+                      <td style={{ ...td, fontSize: 12 }}>
+                        <span style={sourceBadge}>{row.source ?? "—"}</span>
                       </td>
 
-                      {/* Title / Content */}
-                      <td style={tdStyle}>
-                        <div>
-                          <button
-                            onClick={() => setExpandedId(isExpanded ? null : row.id)}
-                            style={titleBtnStyle}
-                          >
-                            <span style={{ fontWeight: 500, color: "#e2e8f0", lineHeight: 1.4 }}>
-                              {row.title}
-                            </span>
-                            {row.article_url && (
-                              <a
-                                href={row.article_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                style={linkStyle}
-                              >
-                                ↗
-                              </a>
-                            )}
-                          </button>
-                          {isExpanded && row.content && (
-                            <p style={contentStyle}>{row.content}</p>
+                      {/* Title */}
+                      <td style={td}>
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                          style={titleBtn}
+                        >
+                          <span style={titleText}>{row.title}</span>
+                          <span style={expandHint}>{isExpanded ? "▲ Thu gọn" : "▼ Xem thêm"}</span>
+                          {row.article_url && (
+                            <a
+                              href={row.article_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={linkStyle}
+                            >
+                              ↗ Xem bài
+                            </a>
                           )}
-                          {!isExpanded && row.content && (
-                            <p style={previewStyle}>{truncate(row.content)}</p>
-                          )}
-                        </div>
+                        </button>
+                        {isExpanded && row.content && (
+                          <div style={contentBox}>{row.content}</div>
+                        )}
                         {saveErrors[row.id] && (
-                          <p style={{ color: "#f87171", fontSize: 11, marginTop: 2 }}>
+                          <p style={{ color: "#dc2626", fontSize: 12, marginTop: 4 }}>
                             ⚠️ {saveErrors[row.id]}
                           </p>
                         )}
                       </td>
 
                       {/* Label */}
-                      <td style={{ ...tdStyle }}>
-                        <LabelSelect
-                          id={row.id}
-                          value={row.label}
-                          onSave={handleLabelSave}
-                        />
+                      <td style={{ ...td, verticalAlign: "middle" }}>
+                        <LabelSelect id={row.id} value={row.label} onSave={handleLabelSave} />
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div style={paginationStyle}>
-          <button
-            onClick={() => setPage(0)}
-            disabled={page === 0}
-            style={pageBtn(page === 0)}
-          >«</button>
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={pageBtn(page === 0)}
-          >‹ Trước</button>
-
-          {/* Page number input */}
-          <span style={{ color: "#8892a4", display: "flex", alignItems: "center", gap: 6 }}>
-            Trang
-            <input
-              type="number"
-              min={1}
-              max={totalPages}
-              value={page + 1}
-              onChange={(e) => {
-                const v = parseInt(e.target.value) - 1;
-                if (!isNaN(v) && v >= 0 && v < totalPages) setPage(v);
-              }}
-              style={pageInputStyle}
-            />
-            / {totalPages}
-          </span>
-
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            style={pageBtn(page >= totalPages - 1)}
-          >Tiếp ›</button>
-          <button
-            onClick={() => setPage(totalPages - 1)}
-            disabled={page >= totalPages - 1}
-            style={pageBtn(page >= totalPages - 1)}
-          >»</button>
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
-      )}
+
+        {/* ── PAGINATION ── */}
+        {!loading && totalPages > 1 && (
+          <div style={paginationRow}>
+            <button onClick={() => setPage(0)} disabled={page === 0} style={pgBtn(page === 0)}>«</button>
+            <button onClick={() => setPage((p) => p - 1)} disabled={page === 0} style={pgBtn(page === 0)}>‹</button>
+
+            {pages.map((p, i) =>
+              p === "..." ? (
+                <span key={`dots-${i}`} style={dots}>…</span>
+              ) : (
+                <button
+                  key={p}
+                  onClick={() => setPage(p as number)}
+                  style={pgBtn(false, p === page)}
+                >
+                  {(p as number) + 1}
+                </button>
+              )
+            )}
+
+            <button onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages - 1} style={pgBtn(page >= totalPages - 1)}>›</button>
+            <button onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} style={pgBtn(page >= totalPages - 1)}>»</button>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
 
-// Styles
-const pageStyle: React.CSSProperties = {
-  maxWidth: 1400,
-  margin: "0 auto",
-  padding: "20px 16px 60px",
+// ── Build smart page list (1 2 3 ... 8 9 10) ──
+function buildPageList(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const pages: (number | "...")[] = [];
+  const add = (n: number) => { if (!pages.includes(n)) pages.push(n); };
+  add(0);
+  if (current > 3) pages.push("...");
+  for (let i = Math.max(1, current - 1); i <= Math.min(total - 2, current + 1); i++) add(i);
+  if (current < total - 4) pages.push("...");
+  add(total - 1);
+  return pages;
+}
+
+// ── Styles ──
+const shell: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#f5f7fa",
   display: "flex",
   flexDirection: "column",
-  gap: 16,
 };
-const headerStyle: React.CSSProperties = {
+const topbar: React.CSSProperties = {
+  background: "#fff",
+  borderBottom: "1px solid #e2e6ed",
+  padding: "14px 32px",
   display: "flex",
+  alignItems: "center",
   justifyContent: "space-between",
-  alignItems: "flex-start",
-  paddingBottom: 8,
-  borderBottom: "1px solid #2e3148",
+  position: "sticky",
+  top: 0,
+  zIndex: 100,
+  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
 };
-const titleStyle: React.CSSProperties = {
-  fontSize: 22,
+const logoBox: React.CSSProperties = {
+  width: 36,
+  height: 36,
+  background: "linear-gradient(135deg, #4f6ef7, #818cf8)",
+  borderRadius: 8,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#fff",
+  fontWeight: 800,
+  fontSize: 18,
+};
+const logoText: React.CSSProperties = {
+  fontSize: 16,
   fontWeight: 700,
-  color: "#e2e8f0",
+  color: "#1a2130",
   letterSpacing: "-0.02em",
 };
-const subtitleStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "#6b7280",
-  marginTop: 2,
+const logoSub: React.CSSProperties = {
+  fontSize: 12,
+  color: "#9aa5b4",
 };
-const refreshBtn: React.CSSProperties = {
-  background: "#232635",
-  border: "1px solid #3b4263",
-  borderRadius: 6,
-  color: "#8892a4",
+const refreshBtnStyle: React.CSSProperties = {
+  background: "#f5f7fa",
+  border: "1px solid #e2e6ed",
+  borderRadius: 8,
+  color: "#6b7a90",
   cursor: "pointer",
-  padding: "6px 14px",
+  padding: "8px 16px",
+  fontWeight: 500,
   fontSize: 13,
+  transition: "background 0.15s",
 };
-const filtersStyle: React.CSSProperties = {
+const main: React.CSSProperties = {
+  flex: 1,
+  maxWidth: 1440,
+  width: "100%",
+  margin: "0 auto",
+  padding: "24px 32px 60px",
   display: "flex",
-  gap: 10,
+  flexDirection: "column",
+  gap: 20,
+};
+const filtersRow: React.CSSProperties = {
+  display: "flex",
+  gap: 12,
+  alignItems: "flex-end",
   flexWrap: "wrap",
-  alignItems: "center",
 };
-const inputStyle: React.CSSProperties = {
-  background: "#1a1d27",
-  border: "1px solid #2e3148",
-  borderRadius: 6,
-  color: "#e2e8f0",
-  padding: "7px 12px",
-  flex: "1 1 220px",
-  minWidth: 180,
+const searchWrap: React.CSSProperties = {
+  position: "relative",
+  flex: "1 1 260px",
+  minWidth: 200,
+};
+const searchIcon: React.CSSProperties = {
+  position: "absolute",
+  left: 12,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontSize: 14,
+  pointerEvents: "none",
+};
+const searchInput_: React.CSSProperties = {
+  width: "100%",
+  background: "#fff",
+  border: "1.5px solid #e2e6ed",
+  borderRadius: 8,
+  color: "#1a2130",
+  padding: "9px 12px 9px 36px",
   outline: "none",
+  fontSize: 14,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
 };
-const selectStyle: React.CSSProperties = {
-  background: "#1a1d27",
-  border: "1px solid #2e3148",
-  borderRadius: 6,
-  color: "#e2e8f0",
-  padding: "7px 28px 7px 10px",
+const filterGroup: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+};
+const filterLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#9aa5b4",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  paddingLeft: 2,
+};
+const filterSelect: React.CSSProperties = {
+  background: "#fff",
+  border: "1.5px solid #e2e6ed",
+  borderRadius: 8,
+  color: "#1a2130",
+  padding: "9px 28px 9px 12px",
   cursor: "pointer",
   minWidth: 140,
-};
-const countStyle: React.CSSProperties = {
-  color: "#6b7280",
+  outline: "none",
   fontSize: 13,
-  marginLeft: "auto",
+  boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+};
+const resultCount: React.CSSProperties = {
+  color: "#9aa5b4",
+  fontSize: 13,
+  alignSelf: "flex-end",
+  paddingBottom: 9,
   whiteSpace: "nowrap",
+  marginLeft: "auto",
 };
-const tableWrapStyle: React.CSSProperties = {
-  border: "1px solid #2e3148",
-  borderRadius: 8,
-  overflow: "auto",
-  minHeight: 200,
+const card: React.CSSProperties = {
+  background: "#fff",
+  borderRadius: 12,
+  border: "1px solid #e2e6ed",
+  overflow: "hidden",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
 };
-const tableStyle: React.CSSProperties = {
+const table: React.CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
 };
-const thStyle: React.CSSProperties = {
-  background: "#141620",
-  padding: "10px 12px",
+const theadRow: React.CSSProperties = {
+  background: "#f5f7fa",
+  borderBottom: "2px solid #e2e6ed",
+};
+const th: React.CSSProperties = {
+  padding: "12px 16px",
   textAlign: "left",
   fontSize: 11,
   fontWeight: 700,
-  color: "#6b7280",
+  color: "#6b7a90",
   textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  borderBottom: "1px solid #2e3148",
-  position: "sticky",
-  top: 0,
-  zIndex: 1,
+  letterSpacing: "0.07em",
+  whiteSpace: "nowrap",
 };
-const trStyle: React.CSSProperties = {
-  borderBottom: "1px solid #2a2d3e",
+const trBase: React.CSSProperties = {
+  borderBottom: "1px solid #f0f2f5",
   transition: "background 0.1s",
 };
-const tdStyle: React.CSSProperties = {
-  padding: "8px 12px",
+const td: React.CSSProperties = {
+  padding: "12px 16px",
   verticalAlign: "top",
 };
-const titleBtnStyle: React.CSSProperties = {
+const sourceBadge: React.CSSProperties = {
+  display: "inline-block",
+  background: "#f0f2f5",
+  border: "1px solid #e2e6ed",
+  borderRadius: 5,
+  padding: "2px 8px",
+  color: "#6b7a90",
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em",
+};
+const titleBtn: React.CSSProperties = {
   background: "none",
   border: "none",
   cursor: "pointer",
@@ -464,83 +512,106 @@ const titleBtnStyle: React.CSSProperties = {
   padding: 0,
   width: "100%",
   display: "flex",
-  gap: 6,
-  alignItems: "flex-start",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "baseline",
 };
-const previewStyle: React.CSSProperties = {
-  color: "#6b7280",
-  fontSize: 12,
-  marginTop: 4,
+const titleText: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  color: "#1a2130",
   lineHeight: 1.5,
+  flex: "1 1 auto",
 };
-const contentStyle: React.CSSProperties = {
-  color: "#9ca3af",
-  fontSize: 13,
-  marginTop: 8,
-  lineHeight: 1.6,
-  padding: "8px 12px",
-  background: "#141620",
-  borderRadius: 6,
-  border: "1px solid #2e3148",
-  whiteSpace: "pre-wrap",
-  maxHeight: 300,
-  overflow: "auto",
+const expandHint: React.CSSProperties = {
+  fontSize: 11,
+  color: "#9aa5b4",
+  flexShrink: 0,
 };
 const linkStyle: React.CSSProperties = {
-  color: "#6366f1",
   fontSize: 12,
+  color: "#4f6ef7",
   textDecoration: "none",
+  fontWeight: 500,
   flexShrink: 0,
-  marginTop: 2,
 };
-const errorStyle: React.CSSProperties = {
-  background: "#1f1315",
-  border: "1px solid #7f1d1d",
-  borderRadius: 6,
-  color: "#fca5a5",
-  padding: "10px 14px",
+const contentBox: React.CSSProperties = {
+  marginTop: 10,
+  padding: "12px 14px",
+  background: "#f5f7fa",
+  borderRadius: 8,
+  border: "1px solid #e2e6ed",
+  fontSize: 13,
+  color: "#374151",
+  lineHeight: 1.7,
+  whiteSpace: "pre-wrap",
+  maxHeight: 280,
+  overflow: "auto",
+  animation: "fadeIn 0.15s ease",
 };
-const loadingStyle: React.CSSProperties = {
+const emptyCell: React.CSSProperties = {
+  textAlign: "center",
+  padding: "60px 0",
+  color: "#9aa5b4",
+  fontSize: 15,
+};
+const loadingBox: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  gap: 12,
   padding: "60px 0",
-  color: "#6b7280",
 };
-const spinner: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  border: "3px solid #2e3148",
-  borderTopColor: "#6366f1",
+const spinnerStyle: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  border: "3px solid #e2e6ed",
+  borderTopColor: "#4f6ef7",
   borderRadius: "50%",
-  animation: "spin 0.8s linear infinite",
+  animation: "spin 0.7s linear infinite",
 };
-const paginationStyle: React.CSSProperties = {
+const errorBox: React.CSSProperties = {
+  background: "#fef2f2",
+  border: "1px solid #fecaca",
+  borderRadius: 8,
+  color: "#dc2626",
+  padding: "12px 16px",
+  display: "flex",
+  gap: 12,
+  alignItems: "center",
+};
+const retryBtn: React.CSSProperties = {
+  background: "none",
+  border: "1px solid #dc2626",
+  borderRadius: 6,
+  color: "#dc2626",
+  cursor: "pointer",
+  padding: "3px 10px",
+  fontSize: 12,
+  marginLeft: "auto",
+};
+const paginationRow: React.CSSProperties = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
-  gap: 8,
+  gap: 4,
   flexWrap: "wrap",
 };
-const pageInputStyle: React.CSSProperties = {
-  background: "#1a1d27",
-  border: "1px solid #2e3148",
-  borderRadius: 4,
-  color: "#e2e8f0",
-  padding: "3px 6px",
-  width: 52,
-  textAlign: "center",
-  outline: "none",
+const dots: React.CSSProperties = {
+  color: "#9aa5b4",
+  padding: "0 4px",
+  userSelect: "none",
 };
-function pageBtn(disabled: boolean): React.CSSProperties {
+function pgBtn(disabled: boolean, active = false): React.CSSProperties {
   return {
-    background: disabled ? "#141620" : "#232635",
-    border: "1px solid #2e3148",
-    borderRadius: 6,
-    color: disabled ? "#374151" : "#9ca3af",
+    minWidth: 36,
+    height: 36,
+    background: active ? "#4f6ef7" : disabled ? "#f5f7fa" : "#fff",
+    border: `1.5px solid ${active ? "#4f6ef7" : "#e2e6ed"}`,
+    borderRadius: 8,
+    color: active ? "#fff" : disabled ? "#cbd2da" : "#374151",
     cursor: disabled ? "not-allowed" : "pointer",
-    padding: "6px 12px",
+    fontWeight: active ? 700 : 400,
     fontSize: 13,
+    transition: "all 0.15s",
   };
 }
