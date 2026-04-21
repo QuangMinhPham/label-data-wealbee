@@ -100,12 +100,6 @@ export default function HomePage() {
     }
   }
 
-  function formatDate(s: string | null) {
-    if (!s) return "—";
-    const d = new Date(s);
-    return d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  }
-
   const pages = buildPageList(page, totalPages);
 
   return (
@@ -204,7 +198,6 @@ export default function HomePage() {
                 <tr style={theadRow}>
                   <th style={{ ...th, width: 44, textAlign: "center" }}>STT</th>
                   <th style={{ ...th, width: 120 }}>Symbol</th>
-                  <th style={{ ...th, width: 110 }}>Ngày đăng</th>
                   <th style={{ ...th, width: 80 }}>Nguồn</th>
                   <th style={th}>Tiêu đề & Nội dung</th>
                   <th style={{ ...th, width: 150 }}>Nhãn</th>
@@ -213,7 +206,7 @@ export default function HomePage() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={emptyCell}>
+                    <td colSpan={5} style={emptyCell}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
                       Không có dữ liệu phù hợp
                     </td>
@@ -240,11 +233,6 @@ export default function HomePage() {
                         <SymbolCell id={row.id} value={row.symbol} onSave={handleSymbolSave} />
                       </td>
 
-                      {/* Date */}
-                      <td style={{ ...td, color: "#6b7a90", fontSize: 13, whiteSpace: "nowrap" }}>
-                        {formatDate(row.published_at)}
-                      </td>
-
                       {/* Source */}
                       <td style={{ ...td, fontSize: 12 }}>
                         <span style={sourceBadge}>{row.source ?? "—"}</span>
@@ -252,24 +240,29 @@ export default function HomePage() {
 
                       {/* Title */}
                       <td style={td}>
-                        <button
-                          onClick={() => setExpandedId(isExpanded ? null : row.id)}
-                          style={titleBtn}
-                        >
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "baseline" }}>
                           <span style={titleText}>{row.title}</span>
-                          <span style={expandHint}>{isExpanded ? "▲ Thu gọn" : "▼ Xem thêm"}</span>
+                          {row.content ? (
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                              style={expandBtn}
+                            >
+                              {isExpanded ? "▲ Thu gọn" : "▼ Xem nội dung"}
+                            </button>
+                          ) : (
+                            <span style={noContentBadge}>Chỉ có tiêu đề</span>
+                          )}
                           {row.article_url && (
                             <a
                               href={row.article_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
                               style={linkStyle}
                             >
-                              ↗ Xem bài
+                              ↗ Xem bài gốc
                             </a>
                           )}
-                        </button>
+                        </div>
                         {isExpanded && row.content && (
                           <div style={contentBox}>{row.content}</div>
                         )}
@@ -504,18 +497,6 @@ const sourceBadge: React.CSSProperties = {
   textTransform: "uppercase",
   letterSpacing: "0.04em",
 };
-const titleBtn: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  textAlign: "left",
-  padding: 0,
-  width: "100%",
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 8,
-  alignItems: "baseline",
-};
 const titleText: React.CSSProperties = {
   fontSize: 14,
   fontWeight: 600,
@@ -523,10 +504,29 @@ const titleText: React.CSSProperties = {
   lineHeight: 1.5,
   flex: "1 1 auto",
 };
-const expandHint: React.CSSProperties = {
+const expandBtn: React.CSSProperties = {
+  background: "none",
+  border: "1px solid #e2e6ed",
+  borderRadius: 5,
+  color: "#6b7a90",
+  cursor: "pointer",
   fontSize: 11,
-  color: "#9aa5b4",
+  fontWeight: 500,
+  padding: "2px 8px",
   flexShrink: 0,
+  whiteSpace: "nowrap",
+};
+const noContentBadge: React.CSSProperties = {
+  display: "inline-block",
+  background: "#fef9ec",
+  border: "1px solid #fde68a",
+  borderRadius: 5,
+  color: "#b45309",
+  fontSize: 11,
+  fontWeight: 500,
+  padding: "2px 8px",
+  flexShrink: 0,
+  whiteSpace: "nowrap",
 };
 const linkStyle: React.CSSProperties = {
   fontSize: 12,
